@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sign_up_in/component/color.dart';
-import 'package:sign_up_in/data/mytripdata/mytrip_data.dart';
 
 class WishList extends StatelessWidget {
-  const WishList({super.key});
+  const WishList({super.key, required this.items});
+
+  final List<dynamic> items;
 
   @override
   Widget build(BuildContext context) {
@@ -19,9 +20,9 @@ class WishList extends StatelessWidget {
             Expanded(
               child: ListView.builder(
                 scrollDirection: Axis.vertical,
-                // physics: NeverScrollableScrollPhysics(),
-                itemCount: pastTrips.length,
+                itemCount: items.length,
                 itemBuilder: (context, index) {
+                  final item = Map<String, dynamic>.from(items[index] as Map);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16.0),
                     child: Card(
@@ -42,7 +43,7 @@ class WishList extends StatelessWidget {
                                   topRight: Radius.circular(10.0),
                                 ),
                                 child: Image.asset(
-                                  pastTrips[index].image,
+                                  item['image'] as String,
                                   width: double.infinity,
                                   height: 220,
                                   fit: BoxFit.cover,
@@ -58,7 +59,7 @@ class WishList extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  pastTrips[index].location,
+                                  item['location'] as String,
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -73,7 +74,7 @@ class WishList extends StatelessWidget {
                                       color: Colors.grey[600],
                                     ),
                                     Text(
-                                      " ${pastTrips[index].date}",
+                                      " ${item['date']}",
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: Color(0xff555555),
@@ -90,7 +91,7 @@ class WishList extends StatelessWidget {
                                       color: Colors.grey[600],
                                     ),
                                     Text(
-                                      " ${pastTrips[index].duration}",
+                                      " ${item['duration']}",
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: Color(0xff555555),
@@ -104,7 +105,7 @@ class WishList extends StatelessWidget {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      "\$${wishLists[index].price}",
+                                      "\$${item['price']}",
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,

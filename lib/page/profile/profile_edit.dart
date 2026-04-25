@@ -1,9 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:sign_up_in/component/color.dart';
-import 'package:sign_up_in/data/profiledata/profiledata.dart';
+import 'package:sign_up_in/services/api_service.dart';
+import 'package:sign_up_in/services/session_service.dart';
 
-class ProfileEdit extends StatelessWidget {
-  const ProfileEdit({super.key});
+class ProfileEdit extends StatefulWidget {
+  const ProfileEdit({super.key, required this.profile});
+
+  final Map<String, dynamic> profile;
+
+  @override
+  State<ProfileEdit> createState() => _ProfileEditState();
+}
+
+class _ProfileEditState extends State<ProfileEdit> {
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _firstNameController = TextEditingController(
+      text: widget.profile['firstName'] as String? ?? '',
+    );
+    _lastNameController = TextEditingController(
+      text: widget.profile['lastName'] as String? ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +64,11 @@ class ProfileEdit extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
+          TextButton(
+            onPressed: _isSaving ? null : _handleSave,
             child: Text(
-              "SAVE",
-              style: TextStyle(
-                color: primaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.normal,
-              ),
+              _isSaving ? "SAVING..." : "SAVE",
+              style: TextStyle(color: primaryColor, fontSize: 16),
             ),
           ),
         ],
@@ -58,7 +85,10 @@ class ProfileEdit extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 50,
-                    backgroundImage: AssetImage(profiles[0].avatarImage),
+                    backgroundImage: AssetImage(
+                      widget.profile['avatarImage'] as String? ??
+                          'assets/profile/profile2.png',
+                    ),
                   ),
                   Positioned(
                     left: 75,
@@ -109,8 +139,11 @@ class ProfileEdit extends StatelessWidget {
                         Container(
                           margin: EdgeInsets.only(right: 8),
                           child: TextField(
+                            controller: _firstNameController,
                             decoration: InputDecoration(
-                              hintText: "John",
+                              hintText:
+                                  widget.profile['firstName'] as String? ??
+                                  'First name',
                               border: UnderlineInputBorder(
                                 borderSide: BorderSide(
                                   color: Colors.grey.shade400,
@@ -137,8 +170,11 @@ class ProfileEdit extends StatelessWidget {
                         Container(
                           margin: EdgeInsets.only(left: 8),
                           child: TextField(
+                            controller: _lastNameController,
                             decoration: InputDecoration(
-                              hintText: "Doe",
+                              hintText:
+                                  widget.profile['lastName'] as String? ??
+                                  'Last name',
                               border: UnderlineInputBorder(
                                 borderSide: BorderSide(
                                   color: Colors.grey.shade400,
@@ -154,6 +190,14 @@ class ProfileEdit extends StatelessWidget {
               ),
             ),
             SizedBox(height: 40),
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
             SizedBox(
               height: 110,
               child: Column(
@@ -212,5 +256,59 @@ class ProfileEdit extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleSave() async {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+
+    if (firstName.isEmpty || lastName.isEmpty) {
+      setState(() {
+        _errorMessage = 'First name va last name khong duoc de trong.';
+      });
+      return;
+    }
+
+    final rawId = widget.profile['id'];
+    final userId = rawId is int ? rawId : int.tryParse('$rawId');
+    if (userId == null) {
+      setState(() {
+        _errorMessage = 'Khong xac dinh duoc user hien tai.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final updatedProfile = await ApiService.updateProfile(
+        userId: userId,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      final savedUser = Map<String, dynamic>.from(updatedProfile);
+      await SessionService.saveUser(savedUser);
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context, updatedProfile);
+    } on ApiException catch (error) {
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage = 'Khong the cap nhat profile.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 }

@@ -1,9 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:sign_up_in/data/notificationdata/notification_data.dart';
-import 'package:sign_up_in/models/notification_model.dart';
+import 'package:sign_up_in/models/notification_model.dart' as app_notification;
+import 'package:sign_up_in/services/api_service.dart';
+import 'package:sign_up_in/services/session_service.dart';
 
-class NotificationsPage extends StatelessWidget {
+class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
+
+  @override
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<NotificationsPage> {
+  late Future<List<dynamic>> _notificationsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationsFuture = _loadNotifications();
+  }
+
+  Future<List<dynamic>> _loadNotifications() async {
+    final userId = await SessionService.getUserId();
+    if (userId == null) {
+      throw Exception('Chua dang nhap.');
+    }
+    return ApiService.getNotifications(userId);
+  }
 
   String _formatDay(DateTime date) {
     const months = [
@@ -25,7 +47,28 @@ class NotificationsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FutureBuilder<List<dynamic>>(
+      future: _notificationsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Scaffold(
+            body: Center(
+              child: Text(
+                'Khong the tai notifications.\n${snapshot.error ?? ''}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        final notifications = List<Map<String, dynamic>>.from(snapshot.data!);
+        return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
@@ -79,20 +122,26 @@ class NotificationsPage extends StatelessWidget {
           ),
 
           SliverToBoxAdapter(
-            child: ListView.builder(
+              child: ListView.builder(
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
               itemCount: notifications.length,
               itemBuilder: (context, index) {
+                final item = notifications[index];
+                final actionIcon = _parseActionIcon(
+                  item['actionIcon'] as String? ?? 'edit',
+                );
+                final daySent = DateTime.tryParse(
+                  item['daySent'] as String? ?? '',
+                );
                 return ListTile(
                   leading: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundImage: AssetImage(
-                          notifications[index].avatarImage,
-                        ),
+                        backgroundImage:
+                            AssetImage(item['avatarImage'] as String),
                       ),
                       Positioned(
                         right: -2,
@@ -106,7 +155,7 @@ class NotificationsPage extends StatelessWidget {
                             border: Border.all(color: Colors.white, width: 2),
                           ),
                           child: Icon(
-                            notifications[index].actionIcon.iconData,
+                            actionIcon.iconData,
                             size: 12,
                             color: Colors.white,
                           ),
@@ -115,11 +164,11 @@ class NotificationsPage extends StatelessWidget {
                     ],
                   ),
                   title: Text(
-                    notifications[index].title,
+                    item['title'] as String,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
-                    _formatDay(notifications[index].daySent),
+                    _formatDay(daySent ?? DateTime.now()),
                     style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   shape: Border(
@@ -131,6 +180,19 @@ class NotificationsPage extends StatelessWidget {
           ),
         ],
       ),
+        );
+      },
     );
+  }
+
+  app_notification.NotificationActionIcon _parseActionIcon(String rawValue) {
+    switch (rawValue) {
+      case 'location':
+        return app_notification.NotificationActionIcon.location;
+      case 'notes':
+        return app_notification.NotificationActionIcon.notes;
+      default:
+        return app_notification.NotificationActionIcon.edit;
+    }
   }
 }

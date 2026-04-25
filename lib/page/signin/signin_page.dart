@@ -3,6 +3,8 @@ import 'package:sign_up_in/component/color.dart';
 import 'package:sign_up_in/page/forgotpass_page/forgot_pass_page.dart';
 import 'package:sign_up_in/page/navigationbar/mainnavigation.dart';
 import 'package:sign_up_in/page/signup/signup_page.dart';
+import 'package:sign_up_in/services/api_service.dart';
+import 'package:sign_up_in/services/auth_service.dart';
 
 class SigninPage extends StatefulWidget {
   const SigninPage({super.key});
@@ -13,12 +15,17 @@ class SigninPage extends StatefulWidget {
 
 class _SigninPageState extends State<SigninPage> {
   late Size mediaSize;
-  TextEditingController firstName = TextEditingController();
-  TextEditingController lastName = TextEditingController();
-  TextEditingController countryName = TextEditingController();
-  TextEditingController emailController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-  TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     mediaSize = MediaQuery.of(context).size;
@@ -93,7 +100,7 @@ class _SigninPageState extends State<SigninPage> {
         ),
         SizedBox(height: 20),
         Text(
-          'Welcome back, Yoo Jin',
+          'Welcome back',
           style: TextStyle(
             color: primaryColor,
             fontSize: 24,
@@ -106,6 +113,13 @@ class _SigninPageState extends State<SigninPage> {
         SizedBox(height: 11),
         _buildBlackText("Password"),
         _buildInputField(passwordController, 'Type password', isPassword: true),
+        if (_errorMessage != null) ...[
+          SizedBox(height: 12),
+          Text(
+            _errorMessage!,
+            style: const TextStyle(color: Colors.red, fontSize: 13),
+          ),
+        ],
         SizedBox(height: 8),
         _buildLinkForgotPass(),
         SizedBox(height: 19),
@@ -213,14 +227,9 @@ class _SigninPageState extends State<SigninPage> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: TextButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => MainNavigation()),
-          );
-        },
+        onPressed: _isLoading ? null : _handleSignIn,
         child: Text(
-          'SIGN IN',
+          _isLoading ? 'SIGNING IN...' : 'SIGN IN',
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -257,5 +266,48 @@ class _SigninPageState extends State<SigninPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _handleSignIn() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Email va password khong duoc de trong.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await AuthService.signIn(email, password);
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainNavigation()),
+        (route) => false,
+      );
+    } on ApiException catch (error) {
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage = 'Khong the ket noi API server.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 }

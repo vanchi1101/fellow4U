@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sign_up_in/component/color.dart';
-// import 'package:sign_up_in/models/mytrip_model.dart';
 import 'package:sign_up_in/page/mytrip/current_trip.dart';
 import 'package:sign_up_in/page/mytrip/next_trip.dart';
 import 'package:sign_up_in/page/mytrip/past_trip.dart';
 import 'package:sign_up_in/page/mytrip/wish_list.dart';
+import 'package:sign_up_in/services/api_service.dart';
+import 'package:sign_up_in/services/session_service.dart';
 
 class MyTripPage extends StatefulWidget {
   const MyTripPage({super.key});
@@ -16,11 +17,13 @@ class MyTripPage extends StatefulWidget {
 class _MyTripPageState extends State<MyTripPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late Future<Map<String, dynamic>> _myTripFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _myTripFuture = _loadMyTrip();
   }
 
   @override
@@ -31,7 +34,41 @@ class _MyTripPageState extends State<MyTripPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _myTripFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Scaffold(
+            body: Center(
+              child: Text(
+                'Khong the tai my trip data.\n${snapshot.error ?? ''}',
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        final data = snapshot.data!;
+        final currentTrips = List<dynamic>.from(
+          data['currentTrips'] as List? ?? const [],
+        );
+        final nextTrips = List<dynamic>.from(
+          data['nextTrips'] as List? ?? const [],
+        );
+        final pastTrips = List<dynamic>.from(
+          data['pastTrips'] as List? ?? const [],
+        );
+        final wishList = List<dynamic>.from(
+          data['wishList'] as List? ?? const [],
+        );
+
+        return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
@@ -116,17 +153,26 @@ class _MyTripPageState extends State<MyTripPage>
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Current Trips
-                const CurrentTrip(),
-                const NextTrip(),
-                const PastTrip(),
-                const WishList(),
+                CurrentTrip(items: currentTrips),
+                NextTrip(items: nextTrips),
+                PastTrip(items: pastTrips),
+                WishList(items: wishList),
               ],
             ),
           ),
         ],
       ),
+        );
+      },
     );
+  }
+
+  Future<Map<String, dynamic>> _loadMyTrip() async {
+    final userId = await SessionService.getUserId();
+    if (userId == null) {
+      throw Exception('Chua dang nhap.');
+    }
+    return ApiService.getMyTrip(userId);
   }
 }
 

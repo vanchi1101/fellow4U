@@ -1,13 +1,53 @@
 import 'package:flutter/material.dart';
-import 'package:sign_up_in/data/chatdata/chat_data.dart';
 import 'package:sign_up_in/page/chat/chat_detail_page.dart';
+import 'package:sign_up_in/services/api_service.dart';
+import 'package:sign_up_in/services/session_service.dart';
 
-class ChatPage extends StatelessWidget {
+class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
 
   @override
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  late Future<List<dynamic>> _chatFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _chatFuture = _loadChats();
+  }
+
+  Future<List<dynamic>> _loadChats() async {
+    final userId = await SessionService.getUserId();
+    if (userId == null) {
+      throw Exception('Chua dang nhap.');
+    }
+    return ApiService.getChats(userId);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FutureBuilder<List<dynamic>>(
+      future: _chatFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Scaffold(
+            body: Center(
+              child: Text('Khong the tai danh sach chat.\n${snapshot.error}'),
+            ),
+          );
+        }
+
+        final chatUsers = List<Map<String, dynamic>>.from(snapshot.data!);
+        return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
@@ -82,21 +122,24 @@ class ChatPage extends StatelessWidget {
           ),
 
           SliverToBoxAdapter(
-            child: ListView.builder(
+              child: ListView.builder(
               shrinkWrap: true,
               physics: NeverScrollableScrollPhysics(),
               itemCount: chatUsers.length,
               itemBuilder: (context, index) {
+                final chatUser = chatUsers[index];
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundImage: AssetImage(chatUsers[index].avatarImage),
+                    backgroundImage: AssetImage(
+                      chatUser['avatarImage'] as String,
+                    ),
                   ),
                   title: Text(
-                    chatUsers[index].name,
+                    chatUser['name'] as String,
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text(chatUsers[index].lastMessage),
-                  trailing: Text(chatUsers[index].time),
+                  subtitle: Text(chatUser['lastMessage'] as String),
+                  trailing: Text(chatUser['time'] as String),
                   shape: Border(
                     bottom: BorderSide(color: Colors.grey.shade300),
                   ),
@@ -105,8 +148,8 @@ class ChatPage extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatDetailPage(
-                          name: chatUsers[index].name,
-                          avatarImage: chatUsers[index].avatarImage,
+                          name: chatUser['name'] as String,
+                          avatarImage: chatUser['avatarImage'] as String,
                         ),
                       ),
                     );
@@ -117,6 +160,8 @@ class ChatPage extends StatelessWidget {
           ),
         ],
       ),
+        );
+      },
     );
   }
 }

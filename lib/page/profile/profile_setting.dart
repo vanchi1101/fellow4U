@@ -1,10 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:sign_up_in/component/color.dart';
-import 'package:sign_up_in/data/profiledata/profiledata.dart';
 import 'package:sign_up_in/page/profile/profile_edit.dart';
+import 'package:sign_up_in/page/signin/signin_page.dart';
+import 'package:sign_up_in/services/auth_service.dart';
 
-class ProfileSetting extends StatelessWidget {
-  const ProfileSetting({super.key});
+class ProfileSetting extends StatefulWidget {
+  const ProfileSetting({super.key, required this.profile});
+
+  final Map<String, dynamic> profile;
+
+  @override
+  State<ProfileSetting> createState() => _ProfileSettingState();
+}
+
+class _ProfileSettingState extends State<ProfileSetting> {
+  late Map<String, dynamic> _profile;
+  bool _isSigningOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = Map<String, dynamic>.from(widget.profile);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +32,7 @@ class ProfileSetting extends StatelessWidget {
         elevation: 0.5,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.black, size: 20),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, _profile),
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -57,7 +74,8 @@ class ProfileSetting extends StatelessWidget {
                           CircleAvatar(
                             radius: 30,
                             backgroundImage: AssetImage(
-                              profiles[0].avatarImage,
+                              _profile['avatarImage'] as String? ??
+                                  'assets/profile/profile2.png',
                             ),
                           ),
                           SizedBox(width: 16),
@@ -66,7 +84,7 @@ class ProfileSetting extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                profiles[0].username,
+                                _profile['username'] as String? ?? '',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
@@ -74,7 +92,9 @@ class ProfileSetting extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                "Traveler",
+                                _capitalizeRole(
+                                  _profile['role'] as String? ?? 'traveller',
+                                ),
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,
@@ -90,9 +110,16 @@ class ProfileSetting extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProfileEdit(),
+                              builder: (context) =>
+                                  ProfileEdit(profile: _profile),
                             ),
-                          );
+                          ).then((value) {
+                            if (value is Map<String, dynamic>) {
+                              setState(() {
+                                _profile = value;
+                              });
+                            }
+                          });
                         },
 
                         child: Container(
@@ -193,12 +220,45 @@ class ProfileSetting extends StatelessWidget {
                     ),
                     onTap: () {},
                   ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.logout, color: Colors.redAccent),
+                    title: Text(
+                      _isSigningOut ? "Signing out..." : "Sign out",
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                    onTap: _isSigningOut ? null : _handleSignOut,
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  String _capitalizeRole(String role) {
+    if (role.isEmpty) {
+      return '';
+    }
+    return '${role[0].toUpperCase()}${role.substring(1)}';
+  }
+
+  Future<void> _handleSignOut() async {
+    setState(() {
+      _isSigningOut = true;
+    });
+
+    await AuthService.signOut();
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const SigninPage()),
+      (route) => false,
     );
   }
 }

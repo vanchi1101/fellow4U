@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sign_up_in/component/color.dart';
+import 'package:sign_up_in/page/navigationbar/mainnavigation.dart';
 import 'package:sign_up_in/page/signin/signin_page.dart';
-// import 'package:sign_up_in/config/top_curve_clipper.dart';
-// import 'package:sign_up_in/component/color.dart';
+import 'package:sign_up_in/services/api_service.dart';
+import 'package:sign_up_in/services/auth_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -13,12 +14,27 @@ class SignupPage extends StatefulWidget {
 
 class _SignupPageState extends State<SignupPage> {
   late Size mediaSize;
-  TextEditingController firstName = TextEditingController();
-  TextEditingController lastName = TextEditingController();
-  TextEditingController countryName = TextEditingController();
-  TextEditingController emailController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-  TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController firstName = TextEditingController();
+  final TextEditingController lastName = TextEditingController();
+  final TextEditingController countryName = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+  String _role = 'traveller';
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    firstName.dispose();
+    lastName.dispose();
+    countryName.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     mediaSize = MediaQuery.of(context).size;
@@ -109,6 +125,13 @@ class _SignupPageState extends State<SignupPage> {
           'Repeat password',
           isPassword: true,
         ),
+        if (_errorMessage != null) ...[
+          SizedBox(height: 12),
+          Text(
+            _errorMessage!,
+            style: const TextStyle(color: Colors.red, fontSize: 13),
+          ),
+        ],
         SizedBox(height: 19),
         _buildTextJoin(),
         SizedBox(height: 15),
@@ -138,10 +161,11 @@ class _SignupPageState extends State<SignupPage> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBlackText("First Name"),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Yoo',
+                  _buildBlackText("First Name"),
+                  TextField(
+                    controller: firstName,
+                    decoration: InputDecoration(
+                      hintText: 'Yoo',
                   hintStyle: TextStyle(
                     color: const Color(0xff121212),
                     fontSize: 16,
@@ -158,10 +182,11 @@ class _SignupPageState extends State<SignupPage> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildBlackText("Last Name"),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Jin',
+                  _buildBlackText("Last Name"),
+                  TextField(
+                    controller: lastName,
+                    decoration: InputDecoration(
+                      hintText: 'Jin',
                   hintStyle: TextStyle(
                     color: const Color(0xff121212),
                     fontSize: 16,
@@ -195,7 +220,6 @@ class _SignupPageState extends State<SignupPage> {
   }
 
   Widget _buildInputRadio() {
-    int userType = 1;
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
@@ -203,11 +227,11 @@ class _SignupPageState extends State<SignupPage> {
           children: [
             Radio<int>(
               activeColor: primaryColor,
-              value: 1, // default value
-              groupValue: userType,
+              value: 1,
+              groupValue: _role == 'traveller' ? 1 : 2,
               onChanged: (value) {
                 setState(() {
-                  userType = value!;
+                  _role = 'traveller';
                 });
               },
             ),
@@ -225,11 +249,12 @@ class _SignupPageState extends State<SignupPage> {
         Row(
           children: [
             Radio<int>(
+              activeColor: primaryColor,
               value: 2,
-              groupValue: userType,
+              groupValue: _role == 'traveller' ? 1 : 2,
               onChanged: (value) {
                 setState(() {
-                  userType = value!;
+                  _role = 'guide';
                 });
               },
             ),
@@ -296,9 +321,9 @@ class _SignupPageState extends State<SignupPage> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: TextButton(
-        onPressed: () {},
+        onPressed: _isLoading ? null : _handleSignUp,
         child: Text(
-          'SIGN UP',
+          _isLoading ? 'SIGNING UP...' : 'SIGN UP',
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -335,5 +360,64 @@ class _SignupPageState extends State<SignupPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _handleSignUp() async {
+    final first = firstName.text.trim();
+    final last = lastName.text.trim();
+    final country = countryName.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
+
+    if (first.isEmpty ||
+        last.isEmpty ||
+        country.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
+      setState(() {
+        _errorMessage = 'Vui long nhap day du thong tin.';
+      });
+      return;
+    }
+
+    if (password != confirmPassword) {
+      setState(() {
+        _errorMessage = 'Confirm password khong khop.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await AuthService.signUp(first, last, email, password, _role, country);
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const MainNavigation()),
+        (route) => false,
+      );
+    } on ApiException catch (error) {
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage = 'Khong the ket noi API server.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 }

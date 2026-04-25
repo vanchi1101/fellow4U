@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sign_up_in/page/navigationbar/mainnavigation.dart';
 import 'package:sign_up_in/page/onboardings/onboarding_view.dart';
+import 'package:sign_up_in/services/session_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +15,22 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: const OnboardingView(),
+      home: FutureBuilder<bool>(
+        future: SessionService.isLoggedIn(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (snapshot.data ?? false) {
+            return const MainNavigation();
+          }
+
+          return const OnboardingView();
+        },
+      ),
     );
   }
 }
