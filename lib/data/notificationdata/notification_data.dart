@@ -10,13 +10,13 @@ final List<Notification> notifications = [
   ),
   Notification(
     title:
-        "Emmy sent you an offer for the trip in Ho Chi Minh, Vietnam on Feb 12, 2020",
+        "My Linh sent you an offer for the trip in Ho Chi Minh, Vietnam on Feb 12, 2020",
     daySent: DateTime.now().subtract(const Duration(hours: 1)),
     avatarImage: "assets/explore/guide2.png",
     actionIcon: NotificationActionIcon.notes,
   ),
   Notification(
-    title: "New Message from Lionel Messi",
+    title: "New Message from Nhat Le",
     daySent: DateTime.now().subtract(const Duration(hours: 2)),
     avatarImage: "assets/explore/guide3.png",
     actionIcon: NotificationActionIcon.edit,
